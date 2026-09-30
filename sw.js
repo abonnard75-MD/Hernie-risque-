@@ -1,11 +1,17 @@
-// Changer VERSION à chaque mise à jour de index.html pour forcer le rafraîchissement sur les téléphones.
-const VERSION = 'v2';
+// Réseau d'abord : l'application affiche toujours la dernière version publiée quand il y a du réseau,
+// et la copie en cache sert uniquement hors ligne.
+const VERSION = 'v3';
 const APP = `hernie-${VERSION}`;
 const FONTS = 'hernie-fonts';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(APP).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' contourne le cache HTTP du navigateur pour récupérer les fichiers à jour
+  e.waitUntil(
+    caches.open(APP)
+      .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -30,8 +36,15 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Fichiers de l'application : cache d'abord, réseau en secours
+  // Fichiers de l'application : réseau d'abord (en revalidant auprès du serveur), cache si hors ligne
   if (url.origin === location.origin) {
-    e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request)));
+    e.respondWith(
+      fetch(url.href, { cache: 'no-cache' })
+        .then(r => {
+          if (r.ok) { const copy = r.clone(); caches.open(APP).then(c => c.put(e.request, copy)); }
+          return r;
+        })
+        .catch(() => caches.match(e.request, { ignoreSearch: true }))
+    );
   }
 });

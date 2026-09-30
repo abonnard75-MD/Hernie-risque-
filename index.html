@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f5f6b">
+<meta name="description" content="Calculateur du risque anesthésique, chirurgical et d'incarcération de la cure de hernie inguinale chez l'ancien prématuré.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Risque hernie inguinale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout : outil clinique en deux colonnes (saisie à gauche, résultats à droite), empilé sur téléphone */
+:root{
+  --bg:#f5f7f7; --surface:#ffffff; --fg:#1b2628; --muted:#5b6b6e; --line:#d9e1e2;
+  --accent:#1f5f6b; --accent-soft:#e3eff1;
+  --c-anes:#3d6fb0; --c-inc:#b5562a; --c-surg:#7a5aa6;
+  --ok:#2f7d4f; --warn:#b7791f; --crit:#b23a3a;
+  --ok-soft:#e5f3ea; --warn-soft:#fbf0dc; --crit-soft:#f8e3e3;
+  --f-display:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111819; --surface:#182224; --fg:#e4ecec; --muted:#98a9ab; --line:#2b3a3d;
+  --accent:#6fb6c4; --accent-soft:#1d3237;
+  --c-anes:#7fa7de; --c-inc:#e28c62; --c-surg:#b39ad8;
+  --ok:#6cc08c; --warn:#e0a94a; --crit:#e57c7c;
+  --ok-soft:#1b3326; --warn-soft:#3a2e17; --crit-soft:#3d2020; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111819; --surface:#182224; --fg:#e4ecec; --muted:#98a9ab; --line:#2b3a3d;
+  --accent:#6fb6c4; --accent-soft:#1d3237;
+  --c-anes:#7fa7de; --c-inc:#e28c62; --c-surg:#b39ad8;
+  --ok:#6cc08c; --warn:#e0a94a; --crit:#e57c7c;
+  --ok-soft:#1b3326; --warn-soft:#3a2e17; --crit-soft:#3d2020; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body)}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:28px 48px;display:flex;flex-direction:column;gap:24px}
+header h1{font-family:var(--f-display);font-weight:600;font-size:clamp(1.6rem,3.2vw,2.2rem);line-height:1.15;margin:0;text-wrap:balance}
+header p{margin:.4rem 0 0;color:var(--muted);max-width:70ch}
+.warning{border:1px solid var(--warn);background:var(--warn-soft);border-radius:8px;padding:10px 14px;font-size:.9rem}
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.panel h2{font-family:var(--f-display);font-weight:600;font-size:1.2rem;margin:0 0 12px}
+form{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label,.field .lbl{font-weight:600;font-size:.9rem}
+.field small{color:var(--muted);font-size:.8rem}
+.inrow{display:flex;align-items:center;gap:8px}
+input[type=number]{width:100%;font:500 1rem var(--f-mono);padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+input[type=number]:focus-visible,.seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.unit{font:.85rem var(--f-mono);color:var(--muted);min-width:2.6em}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg label{flex:1;position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0}
+.seg span{display:block;text-align:center;padding:7px 6px;font-size:.88rem}
+.seg label+label span{border-left:1px solid var(--line)}
+.seg input:checked+span{background:var(--accent);color:var(--surface);font-weight:600}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0;display:flex;flex-direction:column;gap:10px}
+legend{font-weight:600;font-size:.85rem;padding:0 4px}
+.wgrid{display:grid;grid-template-columns:1fr 5.5em;gap:6px 10px;align-items:center;font-size:.85rem}
+.wgrid input{padding:5px 8px;font-size:.9rem}
+.err{color:var(--crit);font-size:.85rem;min-height:1em}
+.results{display:flex;flex-direction:column;gap:18px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:560px){.kpis{grid-template-columns:minmax(0,1fr)}}
+.kpi .lab{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.kpi .val{font:600 2rem/1.15 var(--f-mono);font-variant-numeric:tabular-nums}
+.kpi .sub{font-size:.82rem;color:var(--muted)}
+.kpi.opt .val{color:var(--accent)}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.75rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
+.lvl-ok{background:var(--ok-soft);color:var(--ok)}
+.lvl-warn{background:var(--warn-soft);color:var(--warn)}
+.lvl-crit{background:var(--crit-soft);color:var(--crit)}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.bar{height:6px;background:var(--accent-soft);border-radius:3px;margin-top:5px;overflow:hidden}
+.bar i{display:block;height:100%}
+.mods{color:var(--muted);font-size:.8rem}
+.tscroll{overflow-x:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--muted);margin-top:6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px}
+.notes{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
+svg text{fill:var(--muted);font:11px var(--f-mono)}
+.refs{font-size:.82rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;margin:0;padding-left:1.1em}
+details summary{cursor:pointer;font-weight:600}
+details .coef{font-size:.85rem}
+footer{font-size:.8rem;color:var(--muted)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Risque intégré de la cure de hernie inguinale chez l'ancien prématuré</h1>
+    <p>Estimation combinée du risque anesthésique, du risque chirurgical et du risque d'incarcération pendant l'attente, et recherche du terme de chirurgie qui minimise l'ensemble.</p>
+  </header>
+  <div class="warning"><b>Outil d'aide à la réflexion, non validé.</b> Les coefficients sont une synthèse approximative de la littérature, et certains sont des estimations d'expert, signalées comme telles. Le terme « optimal » dépend fortement du risque d'incarcération hebdomadaire et des pondérations choisies. Le résultat ne remplace ni le jugement clinique ni les protocoles du service.</div>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="h-in">
+      <h2 id="h-in">Patient</h2>
+      <form id="f" novalidate>
+        <div class="field">
+          <label for="ga">Terme de naissance</label>
+          <div class="inrow"><input id="ga" type="number" min="22" max="42" step="0.5" value="28"><span class="unit">SA</span></div>
+        </div>
+        <div class="field">
+          <label for="dx">Terme actuel (hernie diagnostiquée)</label>
+          <div class="inrow"><input id="dx" type="number" min="24" max="80" step="0.5" value="36"><span class="unit">SA</span></div>
+          <small>Âge post-menstruel à partir duquel court le risque d'incarcération</small>
+        </div>
+        <div class="field">
+          <label for="wt">Poids actuel</label>
+          <div class="inrow"><input id="wt" type="number" min="500" max="8000" step="10" value="2000"><span class="unit">g</span></div>
+          <small>Projeté ensuite à +25 g/j</small>
+        </div>
+        <div class="field">
+          <label for="pma">Terme de chirurgie envisagé</label>
+          <div class="inrow"><input id="pma" type="number" min="24" max="80" step="0.5" value="40"><span class="unit">SA</span></div>
+        </div>
+        <div class="field">
+          <span class="lbl" id="l-bpd">Dysplasie bronchopulmonaire</span>
+          <div class="seg" role="radiogroup" aria-labelledby="l-bpd">
+            <label><input type="radio" name="bpd" id="bpd0" value="0"><span>Non</span></label>
+            <label><input type="radio" name="bpd" id="bpd1" value="1" checked><span>Oui</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <span class="lbl" id="l-nec">ATCD de chirurgie pour entérocolite</span>
+          <div class="seg" role="radiogroup" aria-labelledby="l-nec">
+            <label><input type="radio" name="nec" id="nec0" value="0" checked><span>Non</span></label>
+            <label><input type="radio" name="nec" id="nec1" value="1"><span>Oui</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <span class="lbl" id="l-tech">Technique d'anesthésie</span>
+          <div class="seg" role="radiogroup" aria-labelledby="l-tech">
+            <label><input type="radio" name="tech" id="techAG" value="AG" checked><span>Anesthésie générale</span></label>
+            <label><input type="radio" name="tech" id="techRA" value="RA"><span>Rachianesthésie</span></label>
+          </div>
+        </div>
+        <fieldset>
+          <legend>Hypothèses de l'optimisation</legend>
+          <div class="field">
+            <label for="haz">Risque d'incarcération par semaine d'attente</label>
+            <div class="inrow"><input id="haz" type="number" min="0" max="10" step="0.1" value="0.7"><span class="unit">%/sem</span></div>
+            <small>0,7 %/sem ≈ 15 % sur 24 semaines d'attente</small>
+          </div>
+          <div class="lbl" style="font-weight:600;font-size:.85rem">Pondération de gravité</div>
+          <div class="wgrid">
+            <label for="w_apn">Apnée postopératoire</label><input id="w_apn" type="number" min="0" max="5" step="0.1" value="1">
+            <label for="w_resp">Événement respiratoire critique</label><input id="w_resp" type="number" min="0" max="5" step="0.1" value="1">
+            <label for="w_inc">Incarcération</label><input id="w_inc" type="number" min="0" max="5" step="0.1" value="1">
+            <label for="w_surg">Complication chirurgicale</label><input id="w_surg" type="number" min="0" max="5" step="0.1" value="1">
+            <label for="w_rec">Récidive</label><input id="w_rec" type="number" min="0" max="5" step="0.1" value="1">
+          </div>
+          <small style="color:var(--muted);font-size:.8rem">1 partout : chaque événement compte autant. Mettez par exemple 0,5 pour une apnée brève sous scope, ou 2 pour l'incarcération si vous la jugez plus grave.</small>
+        </fieldset>
+        <div class="err" id="err" role="alert"></div>
+      </form>
+    </section>
+
+    <div class="results">
+      <section class="panel" aria-labelledby="h-sum">
+        <h2 id="h-sum">Synthèse</h2>
+        <div class="kpis">
+          <div class="kpi">
+            <div class="lab">Au moins un événement</div>
+            <div class="val" id="tot">–</div>
+            <div class="sub">chirurgie à <span id="kT">–</span> SA · <span class="pill" id="lvl">–</span></div>
+          </div>
+          <div class="kpi">
+            <div class="lab">Événements pondérés</div>
+            <div class="val" id="exp">–</div>
+            <div class="sub">pour 100 enfants, à <span id="kT2">–</span> SA</div>
+          </div>
+          <div class="kpi opt">
+            <div class="lab">Terme optimal</div>
+            <div class="val" id="opt">–</div>
+            <div class="sub" id="optSub">–</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-curve">
+        <h2 id="h-curve">Arbitrage incarcération / anesthésie</h2>
+        <p class="mods" style="margin:0 0 8px">Événements pondérés attendus pour 100 enfants selon le terme de chirurgie programmé. Si l'enfant s'incarcère avant, il est opéré en urgence au moment de l'incarcération. La bande claire indique la zone à moins de 10 % du minimum.</p>
+        <div class="tscroll"><svg id="chart" viewBox="0 0 640 270" width="100%" role="img" aria-label="Courbe des événements attendus selon le terme de chirurgie"></svg></div>
+        <div class="legend">
+          <span><i style="background:var(--accent);height:4px"></i>Total</span>
+          <span><i style="background:var(--c-anes)"></i>Anesthésie</span>
+          <span><i style="background:var(--c-inc)"></i>Incarcération</span>
+          <span><i style="background:var(--c-surg)"></i>Chirurgie</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-det">
+        <h2 id="h-det">Détail au terme envisagé</h2>
+        <div class="tscroll">
+          <table>
+            <thead><tr><th>Événement</th><th>Facteurs appliqués</th><th style="text-align:right">Risque</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-notes">
+        <h2 id="h-notes">Points d'interprétation</h2>
+        <ul class="notes" id="notes"></ul>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" aria-labelledby="h-meth">
+    <h2 id="h-meth">Méthode et sources</h2>
+    <details>
+      <summary>Coefficients utilisés</summary>
+      <div class="coef">
+        <p><b>Apnée postopératoire (0–12 h).</b> Courbe logistique calée sur la méta-analyse de Coté (1995) : logit = 9,24 − 0,26 × APM − 0,17 × (terme − 32). Elle reproduit un risque &lt; 1 % vers 56 SA pour un terme de 32 SA et vers 54 SA pour 35 SA. DBP : OR 1,5 (estimation). Rachianesthésie : OR 0,63 (GAS, en intention de traiter).</p>
+        <p><b>Événement respiratoire critique périopératoire</b> (désaturation, laryngospasme, bronchospasme, réintubation). Base 8 % à 40 SA, décroissant à 3 % à 60 SA (ordre de grandeur APRICOT / NECTARINE). DBP : OR 2,5. Terme &lt; 28 SA : OR 1,5. Poids &lt; 2 000 g : OR 1,5. Rachianesthésie : OR 0,5 (estimation). Chirurgie en urgence : OR 1,5 (estimation).</p>
+        <p><b>Complications chirurgicales hors récidive.</b> Base : 2 % à terme, 3 % 32–36 SA, 4 % 28–31 SA, 5 % &lt; 28 SA. Poids : OR 2,0 &lt; 1 500 g, 1,5 &lt; 2 000 g, 1,2 &lt; 2 500 g. ATCD d'ECUN : OR 1,5 (estimation). Chirurgie après incarcération : OR 2,5 (atrophie testiculaire, lésion ovarienne ou intestinale ; estimation).</p>
+        <p><b>Récidive.</b> Base : 1 % à terme, 2,5 % 32–36 SA, 4 % 28–31 SA, 6 % &lt; 28 SA. Mêmes OR de poids. DBP : OR 1,5. ATCD d'ECUN : OR 1,3. Chirurgie avant 40 SA : OR 1,3. Chirurgie après incarcération : OR 1,5 (estimation).</p>
+        <p><b>Incarcération.</b> Risque hebdomadaire constant h pendant l'attente, réglable : P(incarcération avant T) = 1 − exp(−h × (T − terme actuel)). La valeur par défaut (0,7 %/sem) place le cumul autour de 10 à 20 % pour une attente jusqu'à 55–60 SA, dans la fourchette des séries de prématurés en attente. Le risque réel diminue probablement avec l'âge ; un risque constant est donc plutôt défavorable à l'attente longue.</p>
+        <p><b>Optimisation.</b> Pour chaque terme programmé T, on simule l'attente par pas de 0,5 semaine. À chaque pas, l'enfant peut s'incarcérer : il compte alors l'incarcération et les risques d'une chirurgie en urgence à ce terme. S'il atteint T sans incident, il compte les risques de la chirurgie programmée à T. Les événements sont pondérés puis additionnés (espérance d'événements pour 100 enfants). Le terme optimal est celui qui minimise ce total entre le terme actuel et 70 SA.</p>
+        <p><b>« Au moins un événement ».</b> 1 − (1 − P<sub>incarcération</sub>) × Π(1 − p<sub>i</sub>), en supposant des composantes indépendantes, ce qui surestime un peu le risque réel.</p>
+      </div>
+    </details>
+    <ol class="refs">
+      <li>Coté CJ et al. Postoperative apnea in former preterm infants after inguinal herniorrhaphy. A combined analysis. <i>Anesthesiology</i> 1995;82:809-22.</li>
+      <li>Davidson AJ et al. (GAS). Apnea after awake regional and general anesthesia in infants. <i>Anesthesiology</i> 2015;123:38-54.</li>
+      <li>McCann ME et al. (GAS). Neurodevelopmental outcome at 5 years of age after general anaesthesia or awake-regional anaesthesia in infancy. <i>Lancet</i> 2019;393:664-77.</li>
+      <li>Habre W et al. (APRICOT). Incidence of severe critical events in paediatric anaesthesia. <i>Lancet Respir Med</i> 2017;5:412-25.</li>
+      <li>Disma N et al. (NECTARINE). Morbidity and mortality after anaesthesia in early life. <i>Lancet Respir Med</i> 2021;9:1484-96.</li>
+      <li>Blakely ML et al. (HIP Trial). Early vs late inguinal hernia repair in preterm infants. <i>JAMA</i> 2024;331:1035-44.</li>
+      <li>Lautz TB et al. Inguinal hernia repair in premature infants: implications for timing. <i>J Pediatr</i> 2011;158:573-7.</li>
+      <li>Zamakhshary M et al. Risk of incarceration of inguinal hernia among infants and young children awaiting elective surgery. <i>CMAJ</i> 2008;179:1001-5.</li>
+    </ol>
+  </section>
+  <footer>Les valeurs de base et les OR sont modifiables dans le script de la page (objet <code>COEF</code>) pour les ajuster aux données de votre centre.</footer>
+</div>
+
+<script>
+const COEF = {
+  apnea:{a:9.24,bPma:-0.26,bGa:-0.17,orBpd:1.5,orRA:0.63},
+  resp:{p40:0.08,p60:0.03,orBpd:2.5,orGa28:1.5,orW2000:1.5,orRA:0.5,orEm:1.5},
+  surg:{base:[[28,0.05],[32,0.04],[37,0.03],[99,0.02]],orNec:1.5,orEm:2.5},
+  recur:{base:[[28,0.06],[32,0.04],[37,0.025],[99,0.01]],orBpd:1.5,orNec:1.3,orPma40:1.3,orEm:1.5},
+  weightOR:[[1500,2.0],[2000,1.5],[2500,1.2]],
+  gainPerWeek:175, horizon:70, step:0.5
+};
+const lg=p=>Math.log(p/(1-p)), il=x=>1/(1+Math.exp(-x));
+const withOR=(p,or)=>{const o=p/(1-p)*or;return o/(1+o)};
+const pct=p=>(p*100<10?(p*100).toFixed(1):Math.round(p*100)).toString().replace('.',',')+' %';
+const fr=n=>String(n).replace('.',',');
+const byGa=(tab,ga)=>tab.find(([lim])=>ga<lim)[1];
+const wOR=w=>{for(const [lim,or] of COEF.weightOR) if(w<lim) return [or,lim]; return [1,null]};
+const wAt=(x,t)=>Math.max(500,x.wt+COEF.gainPerWeek*(t-x.dx));
+
+// Risques d'une chirurgie réalisée au terme t (programmée ou en urgence)
+function surgeryRisks(x,t,em){
+  const {ga,bpd,nec,tech}=x, RA=tech==='RA', wt=wAt(x,t), out=[];
+  let m=[`APM ${fr(t)} SA`], p=il(COEF.apnea.a+COEF.apnea.bPma*t+COEF.apnea.bGa*(ga-32));
+  if(bpd){p=withOR(p,COEF.apnea.orBpd);m.push('DBP ×1,5')}
+  if(RA){p=withOR(p,COEF.apnea.orRA);m.push('rachi ×0,63')}
+  out.push({id:'apn',g:'A',k:'Apnée postopératoire (0–12 h)',p:Math.max(p,0.001),m});
+  m=[]; const slope=(lg(COEF.resp.p60)-lg(COEF.resp.p40))/20;
+  p=il(lg(COEF.resp.p40)+slope*(t-40));
+  if(bpd){p=withOR(p,COEF.resp.orBpd);m.push('DBP ×2,5')}
+  if(ga<28){p=withOR(p,COEF.resp.orGa28);m.push('terme <28 SA ×1,5')}
+  if(wt<2000){p=withOR(p,COEF.resp.orW2000);m.push('poids <2 kg ×1,5')}
+  if(RA){p=withOR(p,COEF.resp.orRA);m.push('rachi ×0,5')}
+  if(em){p=withOR(p,COEF.resp.orEm);m.push('urgence ×1,5')}
+  if(!m.length)m.push('aucun facteur aggravant');
+  out.push({id:'resp',g:'A',k:'Événement respiratoire critique périopératoire',p,m});
+  const [wor,wlim]=wOR(wt), wtxt=`poids ${Math.round(wt)} g`+(wor>1?` ×${fr(wor)}`:'');
+  p=byGa(COEF.surg.base,ga); m=[`base ${pct(p)}`,wtxt];
+  if(wor>1)p=withOR(p,wor);
+  if(nec){p=withOR(p,COEF.surg.orNec);m.push('ATCD ECUN ×1,5')}
+  if(em){p=withOR(p,COEF.surg.orEm);m.push('après incarcération ×2,5')}
+  out.push({id:'surg',g:'S',k:'Complication chirurgicale (hématome, infection, testicule)',p,m});
+  p=byGa(COEF.recur.base,ga); m=[`base ${pct(p)}`,wtxt];
+  if(wor>1)p=withOR(p,wor);
+  if(bpd){p=withOR(p,COEF.recur.orBpd);m.push('DBP ×1,5')}
+  if(nec){p=withOR(p,COEF.recur.orNec);m.push('ATCD ECUN ×1,3')}
+  if(t<40){p=withOR(p,COEF.recur.orPma40);m.push('chirurgie <40 SA ×1,3')}
+  if(em){p=withOR(p,COEF.recur.orEm);m.push('après incarcération ×1,5')}
+  out.push({id:'rec',g:'S',k:'Récidive herniaire',p,m});
+  return out;
+}
+const weighted=(x,items)=>{const r={A:0,S:0};for(const o of items)r[o.g]+=x.w[o.id]*o.p;return r};
+
+// Événements pondérés attendus (pour 1 enfant) si la chirurgie est programmée à T
+function expected(x,T){
+  const h=x.haz, dt=COEF.step, q=1-Math.exp(-h*dt);
+  let S=1, A=0, I=0, Sg=0;
+  for(let s=x.dx;s<T-1e-9;s+=dt){
+    const f=S*q, r=weighted(x,surgeryRisks(x,s+dt/2,true));
+    I+=f*x.w.inc; A+=f*r.A; Sg+=f*r.S; S-=f;
+  }
+  const r=weighted(x,surgeryRisks(x,T,false));
+  A+=S*r.A; Sg+=S*r.S;
+  return {A,I,S:Sg,tot:A+I+Sg,pInc:1-S};
+}
+
+const $=id=>document.getElementById(id);
+function read(){
+  const v=id=>parseFloat($(id).value), r=n=>document.querySelector(`input[name=${n}]:checked`).value;
+  return {ga:v('ga'),dx:v('dx'),wt:v('wt'),pma:v('pma'),bpd:r('bpd')==='1',nec:r('nec')==='1',tech:r('tech'),
+    haz:v('haz')/100,w:{apn:v('w_apn'),resp:v('w_resp'),inc:v('w_inc'),surg:v('w_surg'),rec:v('w_rec')}};
+}
+function level(p){return p<0.05?['Faible','lvl-ok']:p<0.15?['Modéré','lvl-warn']:['Élevé','lvl-crit']}
+
+function scan(x){
+  const pts=[]; for(let t=x.dx;t<=COEF.horizon+1e-9;t+=COEF.step) pts.push({t,...expected(x,t)});
+  const best=pts.reduce((a,b)=>b.tot<a.tot?b:a);
+  const zone=pts.filter(p=>p.tot<=best.tot*1.1);
+  return {pts,best,zlo:zone[0].t,zhi:zone[zone.length-1].t};
+}
+
+function drawChart(x,sc){
+  const svg=$('chart'), W=640,H=270,L=44,R=14,T=16,B=36, pts=sc.pts;
+  const x0=x.dx, x1=COEF.horizon, xs=t=>L+(t-x0)/(x1-x0)*(W-L-R);
+  const top=Math.max(...pts.map(p=>p.tot))*100;
+  const step=top>100?40:top>50?20:top>20?10:5, ymax=Math.max(step,Math.ceil(top/step)*step);
+  const ys=v=>T+(1-v*100/ymax)*(H-T-B);
+  let s=`<rect x="${xs(sc.zlo)}" y="${T}" width="${Math.max(2,xs(sc.zhi)-xs(sc.zlo))}" height="${H-T-B}" fill="var(--accent-soft)"/>`;
+  for(let y=0;y<=ymax;y+=step){s+=`<line x1="${L}" x2="${W-R}" y1="${ys(y/100)}" y2="${ys(y/100)}" stroke="var(--line)"/><text x="${L-6}" y="${ys(y/100)+4}" text-anchor="end">${y}</text>`}
+  const tickStep=(x1-x0)>24?4:2;
+  for(let t=Math.ceil(x0/tickStep)*tickStep;t<=x1;t+=tickStep){s+=`<text x="${xs(t)}" y="${H-B+16}" text-anchor="middle">${t}</text>`}
+  s+=`<text x="${(L+W-R)/2}" y="${H-4}" text-anchor="middle">terme de chirurgie programmé (SA)</text>`;
+  if(60>x0&&60<x1){s+=`<line x1="${xs(60)}" x2="${xs(60)}" y1="${T}" y2="${H-B}" stroke="var(--muted)" stroke-dasharray="3 3"/><text x="${xs(60)+4}" y="${T+10}">60 SA</text>`}
+  const path=k=>pts.map((p,i)=>(i?'L':'M')+xs(p.t).toFixed(1)+' '+ys(p[k]).toFixed(1)).join(' ');
+  s+=`<path d="${path('A')}" fill="none" stroke="var(--c-anes)" stroke-width="1.6"/>`;
+  s+=`<path d="${path('I')}" fill="none" stroke="var(--c-inc)" stroke-width="1.6"/>`;
+  s+=`<path d="${path('S')}" fill="none" stroke="var(--c-surg)" stroke-width="1.6"/>`;
+  s+=`<path d="${path('tot')}" fill="none" stroke="var(--accent)" stroke-width="3"/>`;
+  const b=sc.best;
+  s+=`<circle cx="${xs(b.t)}" cy="${ys(b.tot)}" r="5.5" fill="var(--accent)"/><text x="${xs(b.t)}" y="${ys(b.tot)-10}" text-anchor="middle" style="fill:var(--fg);font-weight:600">optimum ${fr(b.t)} SA</text>`;
+  const cur=pts.find(p=>Math.abs(p.t-x.pma)<1e-6);
+  if(cur&&Math.abs(cur.t-b.t)>1e-6){s+=`<circle cx="${xs(cur.t)}" cy="${ys(cur.tot)}" r="5" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.5"/><text x="${xs(cur.t)+8}" y="${ys(cur.tot)+14}" style="fill:var(--fg)">envisagé</text>`}
+  svg.innerHTML=s;
+}
+
+function render(){
+  const x=read(), e=$('err');
+  const nums=[x.ga,x.dx,x.wt,x.pma,x.haz,...Object.values(x.w)];
+  if(nums.some(isNaN)){e.textContent='Renseignez tous les champs numériques.';return}
+  if(x.ga<22||x.ga>42){e.textContent='Le terme de naissance doit être compris entre 22 et 42 SA.';return}
+  if(x.dx<x.ga){e.textContent='Le terme actuel ne peut pas être inférieur au terme de naissance.';return}
+  if(x.dx>=COEF.horizon){e.textContent=`Le terme actuel doit être inférieur à ${COEF.horizon} SA.`;return}
+  if(x.pma<x.dx){e.textContent='Le terme de chirurgie envisagé ne peut pas précéder le terme actuel.';return}
+  if(x.pma>COEF.horizon){e.textContent=`Le terme de chirurgie envisagé doit être au plus ${COEF.horizon} SA.`;return}
+  if(x.wt<500||x.wt>8000){e.textContent='Le poids doit être compris entre 500 et 8 000 g.';return}
+  e.textContent='';
+  x.pma=Math.round((x.pma-x.dx)/COEF.step)*COEF.step+x.dx;
+
+  const items=surgeryRisks(x,x.pma,false), ev=expected(x,x.pma);
+  const pInc=1-Math.exp(-x.haz*(x.pma-x.dx));
+  const tot=1-(1-pInc)*items.reduce((a,o)=>a*(1-o.p),1);
+  $('tot').textContent=pct(tot); $('kT').textContent=fr(x.pma); $('kT2').textContent=fr(x.pma);
+  const [lt,lc]=level(tot); $('lvl').textContent=lt; $('lvl').className='pill '+lc;
+  $('exp').textContent=fr((ev.tot*100).toFixed(1));
+
+  const sc=scan(x), b=sc.best;
+  $('opt').textContent=fr(b.t)+' SA';
+  $('optSub').textContent=`${fr((b.tot*100).toFixed(1))} év./100 · zone ${fr(sc.zlo)}–${fr(sc.zhi)} SA`;
+
+  const color={A:'var(--c-anes)',S:'var(--c-surg)',I:'var(--c-inc)'};
+  const rows=[{g:'I',k:'Incarcération pendant l\'attente',p:pInc,m:[`${fr(x.haz*100)} %/sem × ${fr(x.pma-x.dx)} sem`]},...items];
+  $('rows').innerHTML=rows.map(o=>`<tr><td>${o.k}<div class="bar"><i style="width:${Math.min(100,o.p/0.4*100).toFixed(1)}%;background:${color[o.g]}"></i></div></td><td class="mods">${o.m.join(' · ')}</td><td class="num">${pct(o.p)}</td></tr>`).join('');
+
+  const n=[];
+  const dW=Math.round(b.t-x.dx);
+  n.push(b.t<=x.dx+1e-9
+    ? `Avec ces hypothèses, opérer <b>dès maintenant</b> minimise le total : le risque d'incarcération pendant l'attente l'emporte sur la baisse du risque anesthésique.`
+    : `Avec ces hypothèses, le total est minimal pour une chirurgie à <b>${fr(b.t)} SA</b> (≈ ${dW} semaines d'attente, poids projeté ≈ ${Math.round(wAt(x,b.t))} g), avec un risque cumulé d'incarcération de ${pct(b.pInc)}. La courbe est plate entre ${fr(sc.zlo)} et ${fr(sc.zhi)} SA : dans cette zone, les options sont équivalentes à 10 % près.`);
+  const d=ev.tot-b.tot;
+  if(Math.abs(x.pma-b.t)>1e-6) n.push(`Au terme envisagé (${fr(x.pma)} SA), le total est de ${fr((ev.tot*100).toFixed(1))} événements pondérés pour 100 enfants, soit ${fr((d*100).toFixed(1))} de plus qu'à l'optimum.`);
+  n.push('L\'optimum est très sensible au risque hebdomadaire d\'incarcération : faites-le varier (par exemple 0,3 à 1,5 %/sem) pour voir la robustesse de la conclusion.');
+  if(x.pma<60) n.push('Chirurgie avant 60 SA : prise en charge ambulatoire déconseillée ; surveillance cardiorespiratoire scopée d’au moins 12 h (et 12 h sans apnée).');
+  if(x.tech==='RA') n.push('Rachianesthésie : prévoir un échec ou une durée insuffisante dans environ 15–20 % des cas, et éviter toute sédation complémentaire.');
+  if(x.bpd) n.push('DBP : optimisation respiratoire préopératoire et lit de surveillance continue ou de réanimation disponible.');
+  if(x.ga<28) n.push('Terme &lt; 28 SA : dans l’essai HIP (2024), la réparation différée après la sortie de néonatologie a réduit les événements indésirables graves.');
+  if(x.nec) n.push('ATCD de chirurgie d’ECUN : adhérences possibles, défavorables à une voie cœlioscopique ; vérifier la paroi et une éventuelle stomie.');
+  n.push('Une attente n’est raisonnable que si les parents sont formés à reconnaître une incarcération et peuvent consulter rapidement.');
+  $('notes').innerHTML=n.map(t=>`<li>${t}</li>`).join('');
+  drawChart(x,sc);
+}
+$('f').addEventListener('input',render);
+$('f').addEventListener('submit',ev=>ev.preventDefault());
+render();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>

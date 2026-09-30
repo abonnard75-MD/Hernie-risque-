@@ -1,5 +1,5 @@
 // Changer VERSION à chaque mise à jour de index.html pour forcer le rafraîchissement sur les téléphones.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const APP = `hernie-${VERSION}`;
 const FONTS = 'hernie-fonts';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];

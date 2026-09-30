@@ -136,6 +136,14 @@ footer{font-size:.8rem;color:var(--muted)}
           </div>
         </div>
         <div class="field">
+          <span class="lbl" id="l-anem">Anémie (Hb &lt; 10 g/dL ou Ht &lt; 30 %)</span>
+          <div class="seg" role="radiogroup" aria-labelledby="l-anem">
+            <label><input type="radio" name="anem" id="anem0" value="0" checked><span>Non</span></label>
+            <label><input type="radio" name="anem" id="anem1" value="1"><span>Oui</span></label>
+          </div>
+          <small>Valeur au moment de la chirurgie</small>
+        </div>
+        <div class="field">
           <span class="lbl" id="l-nec">ATCD de chirurgie pour entérocolite</span>
           <div class="seg" role="radiogroup" aria-labelledby="l-nec">
             <label><input type="radio" name="nec" id="nec0" value="0" checked><span>Non</span></label>
@@ -226,7 +234,7 @@ footer{font-size:.8rem;color:var(--muted)}
     <details>
       <summary>Coefficients utilisés</summary>
       <div class="coef">
-        <p><b>Apnée postopératoire (0–12 h).</b> Courbe logistique calée sur la méta-analyse de Coté (1995) : logit = 9,24 − 0,26 × APM − 0,17 × (terme − 32). Elle reproduit un risque &lt; 1 % vers 56 SA pour un terme de 32 SA et vers 54 SA pour 35 SA. DBP : OR 1,5 (estimation). Rachianesthésie : OR 0,63 (GAS, en intention de traiter).</p>
+        <p><b>Apnée postopératoire (0–12 h).</b> Courbe logistique calée sur la méta-analyse de Coté (1995) : logit = 9,24 − 0,26 × APM − 0,17 × (terme − 32). Elle reproduit un risque &lt; 1 % vers 56 SA pour un terme de 32 SA et vers 54 SA pour 35 SA. DBP : OR 1,5 (estimation). Anémie (Ht &lt; 30 %) : OR 3 (estimation ; facteur indépendant chez Coté, dont l'effet ne diminue pas avec l'âge post-menstruel). Rachianesthésie : OR 0,63 (GAS, en intention de traiter).</p>
         <p><b>Événement respiratoire critique périopératoire</b> (désaturation, laryngospasme, bronchospasme, réintubation). Base 8 % à 40 SA, décroissant à 3 % à 60 SA (ordre de grandeur APRICOT / NECTARINE). DBP : OR 2,5. Terme &lt; 28 SA : OR 1,5. Poids &lt; 2 000 g : OR 1,5. Rachianesthésie : OR 0,5 (estimation). Chirurgie en urgence : OR 1,5 (estimation).</p>
         <p><b>Complications chirurgicales hors récidive.</b> Base : 2 % à terme, 3 % 32–36 SA, 4 % 28–31 SA, 5 % &lt; 28 SA. Poids : OR 2,0 &lt; 1 500 g, 1,5 &lt; 2 000 g, 1,2 &lt; 2 500 g. ATCD d'ECUN : OR 1,5 (estimation). Chirurgie après incarcération : OR 2,5 (atrophie testiculaire, lésion ovarienne ou intestinale ; estimation).</p>
         <p><b>Récidive.</b> Base : 1 % à terme, 2,5 % 32–36 SA, 4 % 28–31 SA, 6 % &lt; 28 SA. Mêmes OR de poids. DBP : OR 1,5. ATCD d'ECUN : OR 1,3. Chirurgie avant 40 SA : OR 1,3. Chirurgie après incarcération : OR 1,5 (estimation).</p>
@@ -251,7 +259,7 @@ footer{font-size:.8rem;color:var(--muted)}
 
 <script>
 const COEF = {
-  apnea:{a:9.24,bPma:-0.26,bGa:-0.17,orBpd:1.5,orRA:0.63},
+  apnea:{a:9.24,bPma:-0.26,bGa:-0.17,orBpd:1.5,orAnem:3,orRA:0.63},
   resp:{p40:0.08,p60:0.03,orBpd:2.5,orGa28:1.5,orW2000:1.5,orRA:0.5,orEm:1.5},
   surg:{base:[[28,0.05],[32,0.04],[37,0.03],[99,0.02]],orNec:1.5,orEm:2.5},
   recur:{base:[[28,0.06],[32,0.04],[37,0.025],[99,0.01]],orBpd:1.5,orNec:1.3,orPma40:1.3,orEm:1.5},
@@ -268,9 +276,10 @@ const wAt=(x,t)=>Math.max(500,x.wt+COEF.gainPerWeek*(t-x.dx));
 
 // Risques d'une chirurgie réalisée au terme t (programmée ou en urgence)
 function surgeryRisks(x,t,em){
-  const {ga,bpd,nec,tech}=x, RA=tech==='RA', wt=wAt(x,t), out=[];
+  const {ga,bpd,anem,nec,tech}=x, RA=tech==='RA', wt=wAt(x,t), out=[];
   let m=[`APM ${fr(t)} SA`], p=il(COEF.apnea.a+COEF.apnea.bPma*t+COEF.apnea.bGa*(ga-32));
   if(bpd){p=withOR(p,COEF.apnea.orBpd);m.push('DBP ×1,5')}
+  if(anem){p=withOR(p,COEF.apnea.orAnem);m.push('anémie ×3')}
   if(RA){p=withOR(p,COEF.apnea.orRA);m.push('rachi ×0,63')}
   out.push({id:'apn',g:'A',k:'Apnée postopératoire (0–12 h)',p:Math.max(p,0.001),m});
   m=[]; const slope=(lg(COEF.resp.p60)-lg(COEF.resp.p40))/20;
@@ -315,7 +324,7 @@ function expected(x,T){
 const $=id=>document.getElementById(id);
 function read(){
   const v=id=>parseFloat($(id).value), r=n=>document.querySelector(`input[name=${n}]:checked`).value;
-  return {ga:v('ga'),dx:v('dx'),wt:v('wt'),pma:v('pma'),bpd:r('bpd')==='1',nec:r('nec')==='1',tech:r('tech'),
+  return {ga:v('ga'),dx:v('dx'),wt:v('wt'),pma:v('pma'),bpd:r('bpd')==='1',anem:r('anem')==='1',nec:r('nec')==='1',tech:r('tech'),
     haz:v('haz')/100,w:{apn:v('w_apn'),resp:v('w_resp'),inc:v('w_inc'),surg:v('w_surg'),rec:v('w_rec')}};
 }
 function level(p){return p<0.05?['Faible','lvl-ok']:p<0.15?['Modéré','lvl-warn']:['Élevé','lvl-crit']}
@@ -389,6 +398,7 @@ function render(){
   n.push('L\'optimum est très sensible au risque hebdomadaire d\'incarcération : faites-le varier (par exemple 0,3 à 1,5 %/sem) pour voir la robustesse de la conclusion.');
   if(x.pma<60) n.push('Chirurgie avant 60 SA : prise en charge ambulatoire déconseillée ; surveillance cardiorespiratoire scopée d’au moins 12 h (et 12 h sans apnée).');
   if(x.tech==='RA') n.push('Rachianesthésie : prévoir un échec ou une durée insuffisante dans environ 15–20 % des cas, et éviter toute sédation complémentaire.');
+  if(x.anem) n.push('Anémie : facteur de risque d’apnée qui persiste même au-delà des seuils d’âge habituels (Coté). Le modèle la suppose constante ; si elle doit se corriger (anémie du prématuré, supplémentation), refaites le calcul avec « Non » pour le terme concerné, et surveillez l’enfant hospitalisé quel que soit son âge.');
   if(x.bpd) n.push('DBP : optimisation respiratoire préopératoire et lit de surveillance continue ou de réanimation disponible.');
   if(x.ga<28) n.push('Terme &lt; 28 SA : dans l’essai HIP (2024), la réparation différée après la sortie de néonatologie a réduit les événements indésirables graves.');
   if(x.nec) n.push('ATCD de chirurgie d’ECUN : adhérences possibles, défavorables à une voie cœlioscopique ; vérifier la paroi et une éventuelle stomie.');
